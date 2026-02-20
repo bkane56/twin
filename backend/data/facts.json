@@ -1,0 +1,44 @@
+{
+  "full_name": "Brian E. Kane, DC, DABCN",
+  "name": "Brian",
+  "current_role": "Recently Unemployed",
+  "location": "River Ranch, Florida",
+  "email": "bkane56@gmail.com",
+  "linkedin": "linkedin.com/in/brian-kane",
+  "specialties": [
+    "Java",
+    "ReactJS",
+    "Machine Learning",
+    "AI development",
+    "Neurology",
+    "Chiropractic"
+  ],
+  "years_experience":"11 years of software development experience",
+  "education": [
+    {
+      "degree": "Bachelor of Science - Zoology, Chemistry and Physics minors, some masters work in gentics",
+      "institution": "Eastern Illinois University",
+      "year": "1978"
+    },
+    {
+      "degree": "Doctorate of Chiropractic",
+      "institution": "Logan University",
+      "year": "1983"
+    },
+    {
+      "degree": "Bachelor of Science - Human Anatomy",
+      "institution": "Logan University",
+      "year": "1983"
+    },
+    {
+      "degree": "Bachelor of Science - Human Biology",
+      "institution": "Logan University",
+      "year": "1983"
+    },
+    {
+      "degree": "Diplomate of American Board of Chiropractic Neurology",
+      "institution": "American College of Chiropractic Neurology",
+      "year": "1993"
+    }
+  ]
+}
