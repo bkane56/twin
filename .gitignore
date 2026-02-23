@@ -18,6 +18,8 @@ memory/
 .env.*
 !.env.example
 
+temp_files/
+
 # Node
 node_modules/
 out/
