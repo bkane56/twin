@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Brian Kane Digital Twin",
+  title: "Brian Kane's Digital Twin",
   description: "All about Brian Kane",
 };
 
