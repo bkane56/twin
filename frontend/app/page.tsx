@@ -9,7 +9,7 @@ export default function Home() {
               Brian Kane&#39;s AI Twin
             </h1>
             <p className="text-center text-gray-600 mb-8">
-              My somewhat interesting live
+              My somewhat interesting life
             </p>
 
             <div className="h-[600px]">
