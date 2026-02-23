@@ -1,5 +1,3 @@
-# this file is a temp file for setting up aws permissions for github to create what it needs to create
-
 # This creates an IAM role that GitHub Actions can assume
 # Run this once, then you can remove the file
 

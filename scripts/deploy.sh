@@ -13,10 +13,10 @@ echo "📦 Building Lambda package..."
 
 # 2. Terraform workspace & apply
 cd terraform
-# the line below builds the terraform locally
+# the line below builds the terraform locally - will delete or comment out this later when git deploy is called
 #terraform init -input=false
 
-# the line below builds the terraform using git and will build it for release
+## the line below builds the terraform using git and will build it for release
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 AWS_REGION=${DEFAULT_AWS_REGION:-us-east-1}
 terraform init -input=false \
