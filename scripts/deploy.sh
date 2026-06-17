@@ -1,24 +1,29 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-ENVIRONMENT=${1:-dev}          # dev | test | prod
+ENVIRONMENT=${1:-dev}
 PROJECT_NAME=${2:-twin}
+AWS_REGION=${DEFAULT_AWS_REGION:-us-east-1}
 
-echo "🚀 Deploying ${PROJECT_NAME} to ${ENVIRONMENT}..."
+if [[ ! "$ENVIRONMENT" =~ ^(dev|test|prod)$ ]]; then
+  echo "Error: Environment must be one of: dev, test, prod"
+  exit 1
+fi
 
-# 1. Build Lambda package
-cd "$(dirname "$0")/.."        # project root
-echo "📦 Building Lambda package..."
+cd "$(dirname "$0")/.."
+
+echo "Deploying ${PROJECT_NAME} to ${ENVIRONMENT}."
+echo "Custom domain deployment is intentionally disabled in this repo."
+echo "brianekane.com is reserved for the personal website and should not be managed by Digital Twin Terraform."
+
+echo "Building Lambda package."
 (cd backend && uv run deploy.py)
 
-# 2. Terraform workspace & apply
+echo "Initializing Terraform remote state."
 cd terraform
-# the line below builds the terraform locally - will delete or comment out this later when git deploy is called
-#terraform init -input=false
 
-## the line below builds the terraform using git and will build it for release
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-AWS_REGION=${DEFAULT_AWS_REGION:-us-east-1}
+
 terraform init -input=false \
   -backend-config="bucket=twin-terraform-state-${AWS_ACCOUNT_ID}" \
   -backend-config="key=${ENVIRONMENT}/terraform.tfstate" \
@@ -26,42 +31,49 @@ terraform init -input=false \
   -backend-config="dynamodb_table=twin-terraform-locks" \
   -backend-config="encrypt=true"
 
-if ! terraform workspace list | grep -q "$ENVIRONMENT"; then
-  terraform workspace new "$ENVIRONMENT"
-else
+if terraform workspace list | sed 's/*//g' | awk '{$1=$1};1' | grep -qx "$ENVIRONMENT"; then
   terraform workspace select "$ENVIRONMENT"
-fi
-
-# Use prod.tfvars for production environment
-if [ "$ENVIRONMENT" = "prod" ]; then
-  TF_APPLY_CMD=(terraform apply -var-file=prod.tfvars -var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -auto-approve)
 else
-  TF_APPLY_CMD=(terraform apply -var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -auto-approve)
+  terraform workspace new "$ENVIRONMENT"
 fi
 
-echo "🎯 Applying Terraform..."
-"${TF_APPLY_CMD[@]}"
+echo "Applying Terraform."
+if [ "$ENVIRONMENT" = "prod" ] && [ -f "prod.tfvars" ]; then
+  terraform apply \
+    -var-file=prod.tfvars \
+    -var="project_name=$PROJECT_NAME" \
+    -var="environment=$ENVIRONMENT" \
+    -var="use_custom_domain=false" \
+    -var="root_domain=" \
+    -auto-approve
+else
+  terraform apply \
+    -var="project_name=$PROJECT_NAME" \
+    -var="environment=$ENVIRONMENT" \
+    -var="use_custom_domain=false" \
+    -var="root_domain=" \
+    -auto-approve
+fi
 
 API_URL=$(terraform output -raw api_gateway_url)
 FRONTEND_BUCKET=$(terraform output -raw s3_frontend_bucket)
-CUSTOM_URL=$(terraform output -raw custom_domain_url 2>/dev/null || true)
+CLOUDFRONT_URL=$(terraform output -raw cloudfront_url)
 
-# 3. Build + deploy frontend
 cd ../frontend
 
-# Create production environment file with API URL
-echo "📝 Setting API URL for production..."
+echo "Writing frontend production API configuration."
 echo "NEXT_PUBLIC_API_URL=$API_URL" > .env.production
 
-npm install
+npm ci
 npm run build
+
 aws s3 sync ./out "s3://$FRONTEND_BUCKET/" --delete
+
 cd ..
 
-# 4. Final messages
-echo -e "\n✅ Deployment complete!"
-echo "🌐 CloudFront URL : $(terraform -chdir=terraform output -raw cloudfront_url)"
-if [ -n "$CUSTOM_URL" ]; then
-  echo "🔗 Custom domain  : $CUSTOM_URL"
-fi
-echo "📡 API Gateway    : $API_URL"
+echo ""
+echo "Deployment complete."
+echo "CloudFront URL: $CLOUDFRONT_URL"
+echo "API Gateway: $API_URL"
+echo "Frontend Bucket: $FRONTEND_BUCKET"
+echo "Custom domain: not configured. Do not point brianekane.com at this deployment."
