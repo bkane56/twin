@@ -17,6 +17,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: twin-deploy-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy to ${{ github.event.inputs.environment }}
@@ -32,6 +36,7 @@ jobs:
               ;;
             *)
               echo "Unauthorized actor: ${{ github.actor }}"
+              echo "Only approved GitHub users should be allowed to deploy this public repository."
               exit 1
               ;;
           esac
@@ -43,7 +48,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          role-session-name: github-actions-deploy
+          role-session-name: github-actions-twin-deploy-${{ github.event.inputs.environment }}
           aws-region: ${{ secrets.DEFAULT_AWS_REGION }}
 
       - name: Set up Python
@@ -65,48 +70,27 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+          cache: "yarn"
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Run deployment script
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          DEFAULT_AWS_REGION: ${{ secrets.DEFAULT_AWS_REGION }}
         run: |
-          export AWS_ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
-          export DEFAULT_AWS_REGION="${{ secrets.DEFAULT_AWS_REGION }}"
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh "${{ github.event.inputs.environment }}"
-        env:
-          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
 
-      - name: Get deployment outputs
-        id: deploy_outputs
+      - name: Deployment summary
         working-directory: ./terraform
         run: |
           terraform workspace select "${{ github.event.inputs.environment }}"
-          echo "cloudfront_url=$(terraform output -raw cloudfront_url)" >> "$GITHUB_OUTPUT"
-          echo "api_url=$(terraform output -raw api_gateway_url)" >> "$GITHUB_OUTPUT"
-          echo "frontend_bucket=$(terraform output -raw s3_frontend_bucket)" >> "$GITHUB_OUTPUT"
-
-      - name: Invalidate CloudFront
-        run: |
-          FRONTEND_BUCKET="${{ steps.deploy_outputs.outputs.frontend_bucket }}"
-          REGION="${{ secrets.DEFAULT_AWS_REGION }}"
-          ORIGIN_DOMAIN="${FRONTEND_BUCKET}.s3-website-${REGION}.amazonaws.com"
-
-          DISTRIBUTION_ID=$(aws cloudfront list-distributions \
-            --query "DistributionList.Items[?Origins.Items[?DomainName=='${ORIGIN_DOMAIN}']].Id | [0]" \
-            --output text)
-
-          if [ "$DISTRIBUTION_ID" != "None" ] && [ -n "$DISTRIBUTION_ID" ]; then
-            aws cloudfront create-invalidation \
-              --distribution-id "$DISTRIBUTION_ID" \
-              --paths "/*"
-          else
-            echo "No CloudFront distribution found for origin: ${ORIGIN_DOMAIN}"
-          fi
-
-      - name: Deployment summary
-        run: |
           echo "Deployment complete."
-          echo "CloudFront URL: ${{ steps.deploy_outputs.outputs.cloudfront_url }}"
-          echo "API Gateway: ${{ steps.deploy_outputs.outputs.api_url }}"
-          echo "Frontend Bucket: ${{ steps.deploy_outputs.outputs.frontend_bucket }}"
+          echo "CloudFront URL: $(terraform output -raw cloudfront_url)"
+          echo "API Gateway: $(terraform output -raw api_gateway_url)"
+          echo "Frontend Bucket: $(terraform output -raw s3_frontend_bucket)"
+          echo "CloudFront Distribution ID: $(terraform output -raw cloudfront_distribution_id)"
+          echo "Custom domain: not managed by this repo. brianekane.com is reserved for the personal website."

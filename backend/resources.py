@@ -12,6 +12,16 @@ try:
 except FileNotFoundError:
     linkedin = "LinkedIn profile not available"
 
+try:
+    reader = PdfReader("./data/Brian_Kane-Resume.pdf")
+    linkedin = ""
+    for page in reader.pages:
+        text = page.extract_text()
+        if text:
+            linkedin += text
+except FileNotFoundError:
+    resume = "Resume not available"
+
 # Read other data files
 with open("./data/summary.txt", "r", encoding="utf-8") as f:
     summary = f.read()
@@ -21,3 +31,6 @@ with open("./data/style.txt", "r", encoding="utf-8") as f:
 
 with open("./data/facts.json", "r", encoding="utf-8") as f:
     facts = json.load(f)
+
+with open("./data/fun_facts.json", "r", encoding="utf-8") as f:
+    fun_facts = json.load(f)

@@ -1,31 +1,42 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENVIRONMENT="${1:-dev}"
-PROJECT_NAME="${2:-twin}"
+ENVIRONMENT=${1:-dev}
+PROJECT_NAME=${2:-twin}
+AWS_REGION=${DEFAULT_AWS_REGION:-us-east-1}
 
 if [[ ! "$ENVIRONMENT" =~ ^(dev|test|prod)$ ]]; then
-  echo "Invalid environment: $ENVIRONMENT"
-  echo "Allowed values: dev, test, prod"
+  echo "Error: Environment must be one of: dev, test, prod"
   exit 1
 fi
 
-echo "Deploying ${PROJECT_NAME} to ${ENVIRONMENT}."
-
 cd "$(dirname "$0")/.."
+REPO_ROOT="$(pwd)"
+
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Error: required command '$1' is not installed or not on PATH."
+    exit 1
+  fi
+}
+
+require_command aws
+require_command terraform
+require_command uv
+require_command yarn
+
+echo "Deploying ${PROJECT_NAME} to ${ENVIRONMENT}."
+echo "Custom domain deployment is intentionally disabled in this repo."
+echo "brianekane.com is reserved for the personal website and must not be managed by Digital Twin Terraform."
 
 echo "Building Lambda package."
-(
-  cd backend
-  uv run deploy.py
-)
+(cd backend && uv run deploy.py)
 
-cd terraform
+echo "Initializing Terraform remote state."
+cd "$REPO_ROOT/terraform"
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
-AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
-AWS_REGION="${DEFAULT_AWS_REGION:-us-east-1}"
-
-terraform init -input=false \
+terraform init -input=false -reconfigure \
   -backend-config="bucket=twin-terraform-state-${AWS_ACCOUNT_ID}" \
   -backend-config="key=${ENVIRONMENT}/terraform.tfstate" \
   -backend-config="region=${AWS_REGION}" \
@@ -38,47 +49,60 @@ else
   terraform workspace new "$ENVIRONMENT"
 fi
 
-TF_APPLY_CMD=(
-  terraform apply
-  -var="project_name=${PROJECT_NAME}"
-  -var="environment=${ENVIRONMENT}"
-  -auto-approve
-)
-
-if [ "$ENVIRONMENT" = "prod" ]; then
-  TF_APPLY_CMD+=(
-    -var-file=prod.tfvars
-    -var="use_custom_domain=false"
-    -var="root_domain="
-  )
+echo "Applying Terraform."
+if [ "$ENVIRONMENT" = "prod" ] && [ -f "prod.tfvars" ]; then
+  terraform apply \
+    -var-file=prod.tfvars \
+    -var="project_name=$PROJECT_NAME" \
+    -var="environment=$ENVIRONMENT" \
+    -var="use_custom_domain=false" \
+    -var="root_domain=" \
+    -auto-approve
+else
+  terraform apply \
+    -var="project_name=$PROJECT_NAME" \
+    -var="environment=$ENVIRONMENT" \
+    -var="use_custom_domain=false" \
+    -var="root_domain=" \
+    -auto-approve
 fi
 
-echo "Applying Terraform."
-"${TF_APPLY_CMD[@]}"
+API_URL=$(terraform output -raw api_gateway_url)
+FRONTEND_BUCKET=$(terraform output -raw s3_frontend_bucket)
+CLOUDFRONT_URL=$(terraform output -raw cloudfront_url)
+CLOUDFRONT_DISTRIBUTION_ID=$(terraform output -raw cloudfront_distribution_id)
 
-API_URL="$(terraform output -raw api_gateway_url)"
-FRONTEND_BUCKET="$(terraform output -raw s3_frontend_bucket)"
-CUSTOM_URL="$(terraform output -raw custom_domain_url 2>/dev/null || true)"
-CLOUDFRONT_URL="$(terraform output -raw cloudfront_url)"
+cd "$REPO_ROOT/frontend"
 
-cd ../frontend
-
-echo "Setting frontend API URL."
+echo "Writing frontend production API configuration."
 echo "NEXT_PUBLIC_API_URL=${API_URL}" > .env.production
 
-npm install
-npm run build
+echo "Installing frontend dependencies with Yarn."
+yarn install --frozen-lockfile
 
-aws s3 sync ./out "s3://${FRONTEND_BUCKET}/" --delete
+echo "Building static frontend export."
+yarn build
 
-cd ..
+if [ ! -f "out/index.html" ]; then
+  echo "Error: frontend build did not produce out/index.html."
+  echo "Check frontend/next.config.ts and confirm Next.js static export is enabled."
+  exit 1
+fi
+
+echo "Syncing frontend static export to S3 bucket: ${FRONTEND_BUCKET}."
+aws s3 sync "out/" "s3://${FRONTEND_BUCKET}/" --delete
+
+echo "Invalidating CloudFront distribution: ${CLOUDFRONT_DISTRIBUTION_ID}."
+aws cloudfront create-invalidation \
+  --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+  --paths "/*"
+
+cd "$REPO_ROOT"
 
 echo ""
 echo "Deployment complete."
 echo "CloudFront URL: ${CLOUDFRONT_URL}"
-if [ -n "$CUSTOM_URL" ]; then
-  echo "Custom domain: ${CUSTOM_URL}"
-else
-  echo "Custom domain: disabled"
-fi
 echo "API Gateway: ${API_URL}"
+echo "Frontend Bucket: ${FRONTEND_BUCKET}"
+echo "CloudFront Distribution ID: ${CLOUDFRONT_DISTRIBUTION_ID}"
+echo "Custom domain: not configured. Do not point brianekane.com at this deployment."
