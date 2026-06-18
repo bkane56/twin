@@ -152,9 +152,9 @@ def call_bedrock(conversation: List[Dict], user_message: str) -> str:
 
         return response["output"]["message"]["content"][0]["text"]
 
-
-
     except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        error_message = e.response["Error"]["Message"]
         if error_code == "ValidationException":
             raise HTTPException(status_code=400, detail=error_message)
         elif error_code == "AccessDeniedException":

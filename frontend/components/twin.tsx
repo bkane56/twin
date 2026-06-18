@@ -10,6 +10,11 @@ interface Message {
     timestamp: Date;
 }
 
+interface ChatResponse {
+    response: string;
+    session_id: string;
+}
+
 export default function Twin() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
@@ -53,8 +58,7 @@ export default function Twin() {
             });
 
             if (!response.ok) throw new Error('Failed to send message');
-
-            const data = await response.json();
+            const data: ChatResponse = await response.json();
 
             if (!sessionId) {
                 setSessionId(data.session_id);

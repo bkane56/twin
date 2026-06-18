@@ -1,0 +1,2 @@
+"""Tests initialization file."""
+
