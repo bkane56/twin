@@ -3,10 +3,10 @@ set -euo pipefail
 
 ENVIRONMENT=${1:-dev}
 PROJECT_NAME=${2:-twin}
-AWS_REGION=${DEFAULT_AWS_REGION:-us-east-1}
+AWS_REGION=${DEFAULT_AWS_REGION:-us-east-2}
 
-if [[ ! "$ENVIRONMENT" =~ ^(dev|test|prod)$ ]]; then
-  echo "Error: Environment must be one of: dev, test, prod"
+if [[ ! "$ENVIRONMENT" =~ ^(dev|test|prod|prod2)$ ]]; then
+  echo "Error: Environment must be one of: dev, test, prod, prod2"
   exit 1
 fi
 

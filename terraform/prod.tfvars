@@ -1,7 +1,8 @@
 project_name = "twin"
 environment  = "prod"
+aws_region = "us-east-2"
 
-bedrock_model_id = "amazon.nova-pro-v1:0"
+bedrock_model_id = "us.amazon.nova-pro-v1:0"
 
 lambda_timeout            = 60
 api_throttle_burst_limit  = 20

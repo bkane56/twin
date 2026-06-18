@@ -8,18 +8,18 @@ variable "project_name" {
 }
 
 variable "environment" {
-  description = "Environment name (dev, test, prod)"
+  description = "Environment name (dev, test, prod, prod2)"
   type        = string
   validation {
-    condition     = contains(["dev", "test", "prod"], var.environment)
-    error_message = "Environment must be one of: dev, test, prod."
+    condition     = contains(["dev", "test", "prod", "prod2"], var.environment)
+    error_message = "Environment must be one of: dev, test, prod, prod2."
   }
 }
 
 variable "bedrock_model_id" {
   description = "Bedrock model ID"
   type        = string
-  default     = "amazon.nova-micro-v1:0"
+  default     = "us.amazon.nova-pro-v1:0"
 }
 
 variable "lambda_timeout" {
@@ -50,4 +50,10 @@ variable "root_domain" {
   description = "Apex domain name, e.g. mydomain.com"
   type        = string
   default     = ""
+}
+
+variable "aws_region" {
+  description = "AWS region for application resources"
+  type        = string
+  default     = "us-east-1"
 }
