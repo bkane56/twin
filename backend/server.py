@@ -137,9 +137,7 @@ def call_bedrock(conversation: List[Dict], user_message: str) -> str:
         "role": "user",
         "content": [{"text": user_message.strip()}]
     })
-    print("BEDROCK_MODEL_ID:", BEDROCK_MODEL_ID)
-    print("BEDROCK_SYSTEM:", system if 'system' in locals() else None)
-    print("BEDROCK_MESSAGES:", messages)
+
     try:
         response = bedrock_client.converse(
             modelId=BEDROCK_MODEL_ID,
