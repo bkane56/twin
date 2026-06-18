@@ -58,7 +58,7 @@ After resources are destroyed, remove the workspaces:
 cd terraform
 
 # Switch to default workspace
-terraform workspace select default
+
 
 # Delete the workspaces
 terraform workspace delete dev
@@ -329,7 +329,7 @@ The bucket and DynamoDB table are now ready for storing Terraform state.
 Now that the backend resources exist, remove the setup file:
 
 ```bash
-rm backend-setup.tf
+rm backend-setup_temp.tf
 ```
 
 ### Step 4: Update Scripts for S3 Backend
@@ -806,8 +806,8 @@ After either scenario succeeds:
 terraform output github_actions_role_arn
 
 # Remove the setup file after creating
-rm github-oidc.tf    # Mac/Linux
-Remove-Item github-oidc.tf    # Windows PowerShell
+rm github-oidc-temp.tf    # Mac/Linux
+Remove-Item github-oidc-temp.tf    # Windows PowerShell
 ```
 
 **Important**: Save the Role ARN from the terraform output - you'll need it for the next step.
