@@ -4,13 +4,26 @@
 .terraform/
 .terraform.lock.hcl
 terraform.tfstate.d/
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 *.tfvars.secret
+
+# Terraform bootstrap/local-only files
+backend-setup*.tf
+github-oidc*.tf
+*_temp.tf
+*temp*.tf
 
 # Lambda packages
 lambda-deployment.zip
 lambda-package/
 
-# Memory storage (contains conversation history)
+# Memory storage
 memory/
 
 # Environment files
@@ -18,12 +31,17 @@ memory/
 .env.*
 !.env.example
 
+# Temporary/local files
 temp_files/
+week2/
 
 # Node
 node_modules/
 out/
 .next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 *.log
 
 # Python
@@ -32,12 +50,12 @@ __pycache__/
 .venv/
 venv/
 
-# IDE
+# IDE / OS
 .vscode/
 .idea/
 *.swp
 .DS_Store
 Thumbs.db
 
-# AWS
+# AWS local config
 .aws/
