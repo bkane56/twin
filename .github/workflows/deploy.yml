@@ -17,10 +17,6 @@ permissions:
   id-token: write
   contents: read
 
-concurrency:
-  group: twin-deploy-${{ github.event.inputs.environment }}
-  cancel-in-progress: false
-
 jobs:
   deploy:
     name: Deploy to ${{ github.event.inputs.environment }}
@@ -36,7 +32,6 @@ jobs:
               ;;
             *)
               echo "Unauthorized actor: ${{ github.actor }}"
-              echo "Only approved GitHub users should be allowed to deploy this public repository."
               exit 1
               ;;
           esac
@@ -48,7 +43,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          role-session-name: github-actions-twin-deploy-${{ github.event.inputs.environment }}
+          role-session-name: github-actions-deploy
           aws-region: ${{ secrets.DEFAULT_AWS_REGION }}
 
       - name: Set up Python
@@ -74,14 +69,15 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Run deployment script
-        env:
-          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-          DEFAULT_AWS_REGION: ${{ secrets.DEFAULT_AWS_REGION }}
         run: |
+          export AWS_ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
+          export DEFAULT_AWS_REGION="${{ secrets.DEFAULT_AWS_REGION }}"
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh "${{ github.event.inputs.environment }}"
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
 
-      - name: Read Terraform outputs
+      - name: Get deployment outputs
         id: deploy_outputs
         working-directory: ./terraform
         run: |
@@ -91,12 +87,13 @@ jobs:
           echo "frontend_bucket=$(terraform output -raw s3_frontend_bucket)" >> "$GITHUB_OUTPUT"
 
       - name: Invalidate CloudFront
-        env:
-          DEFAULT_AWS_REGION: ${{ secrets.DEFAULT_AWS_REGION }}
-          FRONTEND_BUCKET: ${{ steps.deploy_outputs.outputs.frontend_bucket }}
         run: |
+          FRONTEND_BUCKET="${{ steps.deploy_outputs.outputs.frontend_bucket }}"
+          REGION="${{ secrets.DEFAULT_AWS_REGION }}"
+          ORIGIN_DOMAIN="${FRONTEND_BUCKET}.s3-website-${REGION}.amazonaws.com"
+
           DISTRIBUTION_ID=$(aws cloudfront list-distributions \
-            --query "DistributionList.Items[?Origins.Items[?contains(DomainName, '${FRONTEND_BUCKET}')]].Id | [0]" \
+            --query "DistributionList.Items[?Origins.Items[?DomainName=='${ORIGIN_DOMAIN}']].Id | [0]" \
             --output text)
 
           if [ "$DISTRIBUTION_ID" != "None" ] && [ -n "$DISTRIBUTION_ID" ]; then
@@ -104,7 +101,7 @@ jobs:
               --distribution-id "$DISTRIBUTION_ID" \
               --paths "/*"
           else
-            echo "No CloudFront distribution found for bucket ${FRONTEND_BUCKET}. Skipping invalidation."
+            echo "No CloudFront distribution found for origin: ${ORIGIN_DOMAIN}"
           fi
 
       - name: Deployment summary
@@ -113,4 +110,3 @@ jobs:
           echo "CloudFront URL: ${{ steps.deploy_outputs.outputs.cloudfront_url }}"
           echo "API Gateway: ${{ steps.deploy_outputs.outputs.api_url }}"
           echo "Frontend Bucket: ${{ steps.deploy_outputs.outputs.frontend_bucket }}"
-          echo "Custom domain: not managed by this repo. brianekane.com is reserved for the personal website."

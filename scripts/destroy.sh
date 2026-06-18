@@ -1,29 +1,23 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-if [ $# -eq 0 ]; then
-  echo "Error: Environment parameter is required."
-  echo "Usage: $0 <dev|test|prod>"
-  exit 1
-fi
-
-ENVIRONMENT=$1
-PROJECT_NAME=${2:-twin}
-AWS_REGION=${DEFAULT_AWS_REGION:-us-east-1}
+ENVIRONMENT="${1:-}"
+PROJECT_NAME="${2:-twin}"
 
 if [[ ! "$ENVIRONMENT" =~ ^(dev|test|prod)$ ]]; then
-  echo "Error: Environment must be one of: dev, test, prod"
+  echo "Invalid or missing environment: ${ENVIRONMENT:-<empty>}"
+  echo "Allowed values: dev, test, prod"
   exit 1
 fi
 
-cd "$(dirname "$0")/../terraform"
+echo "Destroying ${PROJECT_NAME} ${ENVIRONMENT}."
 
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+cd "$(dirname "$0")/.."
+cd terraform
 
-echo "Preparing to destroy ${PROJECT_NAME}-${ENVIRONMENT} infrastructure."
-echo "The custom domain brianekane.com is not managed by this repo and must not be destroyed here."
+AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
+AWS_REGION="${DEFAULT_AWS_REGION:-us-east-1}"
 
-echo "Initializing Terraform remote state."
 terraform init -input=false \
   -backend-config="bucket=twin-terraform-state-${AWS_ACCOUNT_ID}" \
   -backend-config="key=${ENVIRONMENT}/terraform.tfstate" \
@@ -31,56 +25,29 @@ terraform init -input=false \
   -backend-config="dynamodb_table=twin-terraform-locks" \
   -backend-config="encrypt=true"
 
-if ! terraform workspace list | sed 's/*//g' | awk '{$1=$1};1' | grep -qx "$ENVIRONMENT"; then
-  echo "Error: Workspace '$ENVIRONMENT' does not exist."
-  echo "Available workspaces:"
-  terraform workspace list
+if terraform workspace list | sed 's/*//g' | awk '{$1=$1};1' | grep -qx "$ENVIRONMENT"; then
+  terraform workspace select "$ENVIRONMENT"
+else
+  echo "Terraform workspace does not exist: $ENVIRONMENT"
   exit 1
 fi
 
-terraform workspace select "$ENVIRONMENT"
+TF_DESTROY_CMD=(
+  terraform destroy
+  -var="project_name=${PROJECT_NAME}"
+  -var="environment=${ENVIRONMENT}"
+  -auto-approve
+)
 
-FRONTEND_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-frontend-${AWS_ACCOUNT_ID}"
-MEMORY_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-memory-${AWS_ACCOUNT_ID}"
-
-if aws s3 ls "s3://$FRONTEND_BUCKET" >/dev/null 2>&1; then
-  echo "Emptying $FRONTEND_BUCKET."
-  aws s3 rm "s3://$FRONTEND_BUCKET" --recursive
-else
-  echo "Frontend bucket not found or already empty."
-fi
-
-if aws s3 ls "s3://$MEMORY_BUCKET" >/dev/null 2>&1; then
-  echo "Emptying $MEMORY_BUCKET."
-  aws s3 rm "s3://$MEMORY_BUCKET" --recursive
-else
-  echo "Memory bucket not found or already empty."
-fi
-
-if [ ! -f "../backend/lambda-deployment.zip" ]; then
-  echo "Creating dummy lambda package for destroy operation."
-  echo "dummy" | zip ../backend/lambda-deployment.zip -
+if [ "$ENVIRONMENT" = "prod" ]; then
+  TF_DESTROY_CMD+=(
+    -var-file=prod.tfvars
+    -var="use_custom_domain=false"
+    -var="root_domain="
+  )
 fi
 
 echo "Running Terraform destroy."
-if [ "$ENVIRONMENT" = "prod" ] && [ -f "prod.tfvars" ]; then
-  terraform destroy \
-    -var-file=prod.tfvars \
-    -var="project_name=$PROJECT_NAME" \
-    -var="environment=$ENVIRONMENT" \
-    -var="use_custom_domain=false" \
-    -var="root_domain=" \
-    -auto-approve
-else
-  terraform destroy \
-    -var="project_name=$PROJECT_NAME" \
-    -var="environment=$ENVIRONMENT" \
-    -var="use_custom_domain=false" \
-    -var="root_domain=" \
-    -auto-approve
-fi
+"${TF_DESTROY_CMD[@]}"
 
-echo "Infrastructure for ${ENVIRONMENT} has been destroyed."
-echo "Optional cleanup after verifying state:"
-echo "  terraform workspace select default"
-echo "  terraform workspace delete $ENVIRONMENT"
+echo "Destroy complete for ${ENVIRONMENT}."
