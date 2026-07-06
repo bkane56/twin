@@ -6,12 +6,13 @@ on:
       environment:
         description: "Environment to deploy"
         required: true
-        default: "dev"
+        default: "prod2"
         type: choice
         options:
           - dev
           - test
           - prod
+          - prod2
 
 permissions:
   id-token: write

@@ -7,6 +7,7 @@ variable "project_name" {
   }
 }
 
+# Prod2 is a work in progress environment for testing new features before deploying to prod. It is not intended for public use.
 variable "environment" {
   description = "Environment name (dev, test, prod, prod2)"
   type        = string
@@ -55,5 +56,5 @@ variable "root_domain" {
 variable "aws_region" {
   description = "AWS region for application resources"
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-2"
 }

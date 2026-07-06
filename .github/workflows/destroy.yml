@@ -11,6 +11,7 @@ on:
           - dev
           - test
           - prod
+          - prod2
       confirm:
         description: "Type DESTROY to confirm destruction"
         required: true

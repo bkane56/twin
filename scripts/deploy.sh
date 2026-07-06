@@ -5,6 +5,7 @@ ENVIRONMENT=${1:-dev}
 PROJECT_NAME=${2:-twin}
 AWS_REGION=${DEFAULT_AWS_REGION:-us-east-2}
 
+# Prod2 is a work in progress environment for testing new features before deploying to prod. It is not intended for public use.
 if [[ ! "$ENVIRONMENT" =~ ^(dev|test|prod|prod2)$ ]]; then
   echo "Error: Environment must be one of: dev, test, prod, prod2"
   exit 1
@@ -50,18 +51,33 @@ else
 fi
 
 echo "Applying Terraform."
+
+TFVARS_FILE=""
+
 if [ "$ENVIRONMENT" = "prod" ] && [ -f "prod.tfvars" ]; then
+  TFVARS_FILE="prod.tfvars"
+elif [ "$ENVIRONMENT" = "prod2" ] && [ -f "prod2.tfvars" ]; then
+  TFVARS_FILE="prod2.tfvars"
+fi
+
+if [ -n "$TFVARS_FILE" ]; then
+  echo "Using Terraform variable file: $TFVARS_FILE"
+
   terraform apply \
-    -var-file=prod.tfvars \
+    -var-file="$TFVARS_FILE" \
     -var="project_name=$PROJECT_NAME" \
     -var="environment=$ENVIRONMENT" \
+    -var="aws_region=$AWS_REGION" \
     -var="use_custom_domain=false" \
     -var="root_domain=" \
     -auto-approve
 else
+  echo "No environment-specific tfvars file found for $ENVIRONMENT. Applying with inline variables only."
+
   terraform apply \
     -var="project_name=$PROJECT_NAME" \
     -var="environment=$ENVIRONMENT" \
+    -var="aws_region=$AWS_REGION" \
     -var="use_custom_domain=false" \
     -var="root_domain=" \
     -auto-approve

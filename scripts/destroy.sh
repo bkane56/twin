@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 cd terraform
 
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
-AWS_REGION="${DEFAULT_AWS_REGION:-us-east-1}"
+AWS_REGION="${DEFAULT_AWS_REGION:-us-east-2}"
 
 terraform init -input=false \
   -backend-config="bucket=twin-terraform-state-${AWS_ACCOUNT_ID}" \
