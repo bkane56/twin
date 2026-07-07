@@ -8,10 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest --coverage",
+    "test:ci": "jest --coverage --runInBand",
     "test:watch": "jest --watch"
   },
   "dependencies": {
-    "@next/swc-darwin-x64": "^16.2.9",
     "@testing-library/user-event": "^14.6.1",
     "lucide-react": "^0.564.0",
     "next": "16.2.9",
