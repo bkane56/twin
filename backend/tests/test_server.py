@@ -123,7 +123,7 @@ def test_load_conversation_s3_not_found():
 
     with patch('server.USE_S3', True):
         with patch('server.S3_BUCKET', 'test-bucket'):
-            with patch('server.s3_client', mock_s3):
+            with patch('server.s3_client', mock_s3, create=True):
                 from server import load_conversation
 
                 result = load_conversation('nonexistent')
@@ -136,7 +136,7 @@ def test_save_conversation_s3():
 
     with patch('server.USE_S3', True):
         with patch('server.S3_BUCKET', 'test-bucket'):
-            with patch('server.s3_client', mock_s3):
+            with patch('server.s3_client', mock_s3, create=True):
                 from server import save_conversation
 
                 session_id = "test-session"
@@ -147,7 +147,6 @@ def test_save_conversation_s3():
                 call_kwargs = mock_s3.put_object.call_args[1]
                 assert call_kwargs['Bucket'] == 'test-bucket'
                 assert call_kwargs['Key'] == 'test-session.json'
-
 
 # ============= Tests for Bedrock Calls =============
 
