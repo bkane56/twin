@@ -94,7 +94,7 @@ echo "Writing frontend production API configuration."
 echo "NEXT_PUBLIC_API_URL=${API_URL}" > .env.production
 
 echo "Installing frontend dependencies with Yarn."
-yarn install --frozen-lockfile
+yarn install --frozen-lockfile --ignore-platform
 
 echo "Building static frontend export."
 yarn build
