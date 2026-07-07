@@ -184,6 +184,10 @@ async def health_check():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
+        # Check that there is a message first
+        if not request.message or not request.message.strip():
+            raise HTTPException(status_code=400, detail="Message must not be empty.")
+
         # Generate session ID if not provided
         session_id = request.session_id or str(uuid.uuid4())
 
