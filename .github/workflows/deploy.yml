@@ -76,7 +76,8 @@ jobs:
           print("OIDC environment:", claims.get("environment"))
           print("OIDC actor:", claims.get("actor"))
           PY
-
+          
+          python /tmp/debug_oidc.py
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
